@@ -1,0 +1,38 @@
+# Niveles de log, según la documentación de Traefik
+#
+# Opcional
+# Default: "ERROR"
+# Otras opciones: "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC"
+
+
+logLevel = "ERROR"
+
+defaultEntryPoints = ["http", "https"]
+
+[web]
+address = ":8080"
+
+[entryPoints]
+  [entryPoints.http]
+  address = ":80"
+    [entryPoints.http.redirect]
+    entryPoint = "https"
+  [entryPoints.https]
+  address = ":443"
+    [entryPoints.https.tls]
+      [[entryPoints.https.tls.certificates]]
+      certFile = "/run/secrets/fullchain_cert"
+      keyFile = "/run/secrets/privkey_cert"
+  [entryPoints.mysql]
+  address=":3306"
+
+# Enable Docker configuration backend
+[docker]
+# Docker server endpoint. Can be a tcp or a unix socket endpoint.
+endpoint = "unix:///var/run/docker.sock"
+# Default domain used.
+# Can be overridden by setting the "traefik.domain" label on a container.
+domain = "monitor.localhost.com"
+# Enable watch docker changes
+watch = true
+swarmMode = true

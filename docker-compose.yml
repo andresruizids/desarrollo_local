@@ -1,0 +1,144 @@
+version: "3.3"
+
+services:
+  reverse-proxy:
+    image: traefik:1.7
+    command: --api --docker
+    ports:
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    configs:
+      - source: traefik_config
+        target: /etc/traefik/traefik.toml
+    secrets:
+      - fullchain_cert
+      - privkey_cert
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=monitor"
+      - "traefik.frontend.rule=Host:monitor.localhost.com"
+      - "traefik.port=8080"
+      - "traefik.frontend.auth.basic=admin:$$apr1$$sbfvhmwe$$q31dQjYRkxVq8beJmgRL30"
+
+  apache:
+    image: php-web:7.4-apache
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 3000M
+      restart_policy:
+        condition: on-failure
+    configs:
+      - source: apache_config
+        target: /etc/apache2/apache2.conf
+      - source: php_production_config
+        target: /usr/local/etc/php/php.ini-production
+      - source: php_development_config
+        target: /usr/local/etc/php/php.ini-development
+        # se debe definir cual es el archivo que se va a montar en la configuracion por defecto
+      - source: php_development_config
+        target: /usr/local/etc/php/php.ini
+    volumes:
+      - ./volumes/html/web:/var/www/html
+      #- ./volumes/logs/logs_apache:/var/log/apache2
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=web"
+      - "traefik.frontend.rule=Host:web.localhost.com"
+      - "traefik.port=80"
+      - "traefik.docker.network=local_net_docker"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    hostname: phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: "3306"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 500M
+      restart_policy:
+        condition: on-failure
+    volumes:
+      #- phpmyamdin_data:/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=pma"
+      - "traefik.frontend.rule=Host:pma.localhost.com"
+      - "traefik.port=80"
+      - "traefik.docker.network=local_net_docker"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      #- "traefik.frontend.headers.SSLHost=example.com"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
+
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - target: 3306
+        published: 3306
+        mode: host
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 500M
+      restart_policy:
+        condition: on-failure
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=mysql"
+      - "traefik.frontend.rule=Host:mysql.localhost.com"
+      - "traefik.port=3306"
+      - "traefik.docker.network=local_net_docker"
+      - "traefik.frontend.entryPoints=http,https"
+    volumes:
+      - MySQL/volumes/data:/var/lib/mysql
+      - MySQL/scriptdb:/home
+      - MySQL/logs:/var/log
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+secrets:
+  fullchain_cert:
+    file: certs/localhost.crt
+  privkey_cert:
+    file: certs/localhost.key
+
+configs:
+  traefik_config:
+    file: traefik/config/traefik.toml
+
+networks:
+  default:
+    external:
+      name: local_net_docker
