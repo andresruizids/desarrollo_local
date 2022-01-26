@@ -7,6 +7,5 @@ Es necesario crear una carpeta vacia en html dentro de volumes de apache para cr
 
 docker run --rm --interactive --tty --volume $PWD/apache/volumes/html:/app composer create-project symfony/website-skeleton web 
 
-docker run --rm --interactive --tty --volume $PWD:/app composer create-project symfony/website-skeleton mi_proyecto --ignore-platform-reqs --no-scripts
 
 docker run --rm --interactive --tty --volume $PWD/apache/volumes/html/web:/app composer install --ignore-platform-reqs --no-scripts
