@@ -23,39 +23,6 @@ services:
       - "traefik.port=8080"
       - "traefik.frontend.auth.basic=admin:$$apr1$$sbfvhmwe$$q31dQjYRkxVq8beJmgRL30"
 
-  mysql:
-    image: mysql
-    command: --default-authentication-plugin=mysql_native_password
-    ports:
-      - target: 3306
-        published: 3306
-        mode: host
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 500M
-      restart_policy:
-        condition: on-failure
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=mysql"
-      - "traefik.frontend.rule=Host:mysql.localhost.com"
-      - "traefik.port=3306"
-      - "traefik.docker.network=local_net_docker" 
-      - "traefik.frontend.entryPoints=http,https"
-
-  
-    volumes:
-      - ./mysql/volumes/data:/var/lib/mysql
-      - ./mysql/volumes/scriptdb:/home
-      - ./mysql/volumes/logs:/var/log
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-
   apache:
     image: php-web:7.4-apache
     deploy:
@@ -69,13 +36,17 @@ services:
     configs:
       - source: apache_config
         target: /etc/apache2/apache2.conf
+      - source: php_production_config
+        target: /usr/local/etc/php/php.ini-production
+      - source: php_development_config
+        target: /usr/local/etc/php/php.ini-development
         # se debe definir cual es el archivo que se va a montar en la configuracion por defecto
       - source: php_development_config
         target: /usr/local/etc/php/php.ini
     volumes:
-      - ./apache/volumes/html/web:/var/www/html
+      - ./Apache/volumes/html/web:/var/www/html
       #- ./volumes/logs/logs_apache:/var/log/apache2
-      - /etc/timezone:/etc/timezone:ro
+      - ./Apache/etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     labels:
       - "traefik.enable=true"
@@ -126,6 +97,36 @@ services:
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
 
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - target: 3306
+        published: 3306
+        mode: host
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 500M
+      restart_policy:
+        condition: on-failure
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=mysql"
+      - "traefik.frontend.rule=Host:mysql.localhost.com"
+      - "traefik.port=3306"
+      - "traefik.docker.network=local_net_docker"
+      - "traefik.frontend.entryPoints=http,https"
+    volumes:
+      - ./MySQL/volumes/data:/var/lib/mysql
+      - ./MySQL/scriptdb:/home
+      - ./MySQL/volumes/logs:/var/log
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 
 secrets:
   fullchain_cert:
@@ -137,11 +138,11 @@ configs:
   traefik_config:
     file: traefik/config/traefik.toml
   apache_config:
-    file: ./apache/sources/config/apache2.conf
+    file: Apache/sources/config/apache2.conf
   php_production_config:
-    file: ./apache/sources/config/php.ini-production
+    file: Apache/sources/config/php.ini-production
   php_development_config:
-    file: ./apache/sources/config/php.ini-development
+    file: Apache/sources/config/php.ini-development
 
 networks:
   default:
